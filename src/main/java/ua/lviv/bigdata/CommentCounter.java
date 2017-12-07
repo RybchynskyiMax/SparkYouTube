@@ -7,48 +7,43 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
+
+import java.util.regex.*;
+
 //This program count comments that contain word "iPhone"
 public class CommentCounter {
     public static void main(String[] args) {
-        SparkConf conf = new SparkConf().setAppName("YouTubeCount");
+        SparkConf conf = new SparkConf().setAppName("YouTubeCount").setMaster("local[2]") ;
         JavaSparkContext sc = new JavaSparkContext(conf);
-        JavaRDD<String> comments = sc.textFile("/Data/DataIn/YouTube/GBcomments.csv");
-        JavaRDD<String> videos = sc.textFile("/Data/DataIn/YouTube/GBvideos.csv");
+        JavaRDD<String> comments = sc.textFile("/home/max/IdeaProjects/SparkYouTube/src/main/resources/DataIn/GBcomments.csv");
+        JavaRDD<String> videos = sc.textFile("/home/max/IdeaProjects/SparkYouTube/src/main/resources/DataIn/GBvideos.csv");
 
         JavaPairRDD<String,Integer> commentsMap = comments.mapToPair(new PairFunction<String, String, Integer>() {
             @Override
             public Tuple2<String, Integer> call(String s) throws Exception {
-               if(!s.contains("video_id,comment_text,likes,replies") || s.equals("")){
-                   char [] sChars = s.toCharArray();
-                   int firstCharOfComment = 0;
-                   int lastCharOfComment =0;
-                   String comment="";
-                   for (int i = 0; i < sChars.length-1; i++) {
-                       if(sChars[i]==',' && sChars[i+1]=='"'){
-                           firstCharOfComment = i+1;
+                Pattern commentPattern = Pattern.compile(".*?\"([^\"]*)\".*?");
+                StringBuilder sTemp= new StringBuilder();
+                int delimeterIndex = 0;
+                if(commentPattern.matcher(s).matches()){
+                char [] chars = s.toCharArray();
+                for (int i = 0; i < chars.length; i++) {
+                    if(chars[i]==','){
+                        delimeterIndex = i;
+                        break;
+                    }
+                }
+                for (int i = 0; i < delimeterIndex; i++) {
+                    sTemp.append(chars[i]);
+                }
+                    if (s.contains("ass")) {
+                        return new Tuple2<>(sTemp.toString(), 1);
+                    } else return new Tuple2<>(sTemp.toString(), 0);
 
-                       }
-                       if(sChars[i]=='"' && sChars[i+1]==','){
-                           lastCharOfComment = i+1;
+                } else {
+                    return new Tuple2<>("0", 0);
+                }
 
-                       }
-                   }
-                   if (firstCharOfComment<0 || lastCharOfComment<0) {
-                       return new Tuple2<>("0",1);
-                   }else {
-                       comment = s.substring(firstCharOfComment, lastCharOfComment);
-                       s = s.replace(comment, "comment");
-                       String[] str = s.split(",");
-                       str[1] = comment;
-                       if (str[1].contains("iPhone")) {
-                           return new Tuple2<>(str[0], 1);
-                       } else return new Tuple2<>(str[0], 0);
-                   }
-               }else {
-                   return new Tuple2<>("0",0);
-               }
-               }
-        });
+        }});
 
         JavaPairRDD<String,String> videosMap = videos.mapToPair(new PairFunction<String, String, String>() {
             @Override
@@ -82,6 +77,14 @@ public class CommentCounter {
                 return integer+integer2;
             }
         });
-        System.out.println(result.collect());
+        for (Tuple2<String, Integer> stringIntegerTuple2 : result.collect()) {
+            if(!(stringIntegerTuple2._2==0)){
+                System.out.println(stringIntegerTuple2);
+            }
+        }
+
+
+        }
+
     }
-}
+
